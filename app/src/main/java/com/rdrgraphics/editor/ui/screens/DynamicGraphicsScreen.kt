@@ -51,7 +51,8 @@ fun DynamicGraphicsScreen() {
         scope.launch {
             isLoading = true
             errorMessage = null
-            withContext(Dispatchers.IO) {
+            
+            val loadJob = launch(Dispatchers.IO) {
                 val rootAvailable = RootManager.isRootAvailable()
                 hasRootAccess = rootAvailable
                 
@@ -91,9 +92,22 @@ fun DynamicGraphicsScreen() {
                     errorMessage = "Root access not available"
                     errorDetails = "This app requires root access to read/write game files. Please grant root access when prompted."
                 }
-                
-                isLoading = false
             }
+            
+            val timeoutJob = launch {
+                kotlinx.coroutines.delay(8000)
+                if (loadJob.isActive) {
+                    android.util.Log.e("GraphicsScreen", "Load operation timed out after 8 seconds")
+                    loadJob.cancel()
+                    errorMessage = "Operation timed out"
+                    errorDetails = "Reading the file took too long. This might be a permission issue or the file is very large."
+                }
+            }
+            
+            loadJob.join()
+            timeoutJob.cancel()
+            
+            isLoading = false
         }
     }
 
@@ -139,10 +153,29 @@ fun DynamicGraphicsScreen() {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
                     CircularProgressIndicator()
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Reading graphics configuration...")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "This may take a few seconds",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    OutlinedButton(
+                        onClick = {
+                            isLoading = false
+                            errorMessage = "Operation cancelled by user"
+                            errorDetails = "You can try again or use the default configuration."
+                        }
+                    ) {
+                        Text("Cancel")
+                    }
                 }
             }
         } else if (errorMessage != null) {
@@ -156,33 +189,60 @@ fun DynamicGraphicsScreen() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    Icon(
-                        Icons.Filled.Error,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.error
+                    Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        errorMessage!!,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    if (errorDetails != null) {
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Icon(Icons.Filled.Info, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            errorMessage!!,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        if (errorDetails != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Text(
+                                    errorDetails!!,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                        }
+                        
                         Spacer(modifier = Modifier.height(16.dp))
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer
                             )
                         ) {
-                            Text(
-                                errorDetails!!,
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(12.dp)
-                            )
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    "⚙️ Magisk Configuration Required",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "1. Open Magisk app\n" +
+                                    "2. Settings → Mount Namespace Mode\n" +
+                                    "3. Change to 'Global Namespace'\n" +
+                                    "4. Reboot device",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
                         }
                     }
+                }
                     Spacer(modifier = Modifier.height(24.dp))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),

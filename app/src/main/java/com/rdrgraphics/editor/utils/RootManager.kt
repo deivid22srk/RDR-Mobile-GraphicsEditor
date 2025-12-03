@@ -8,8 +8,8 @@ object RootManager {
         Shell.enableVerboseLogging = true
         Shell.setDefaultBuilder(
             Shell.Builder.create()
-                .setFlags(Shell.FLAG_REDIRECT_STDERR)
-                .setTimeout(10)
+                .setFlags(Shell.FLAG_REDIRECT_STDERR or Shell.FLAG_MOUNT_MASTER)
+                .setTimeout(5)
         )
     }
 
@@ -24,26 +24,19 @@ object RootManager {
     fun writeGraphicsConfig(content: String): Boolean {
         return try {
             val path = "/data/user/0/com.netflix.NGP.Kamo/files/graphics.xml"
-            val tempFile = File.createTempFile("graphics", ".xml")
-            tempFile.writeText(content)
             
-            android.util.Log.d("RootManager", "Writing to $path from ${tempFile.absolutePath}")
+            android.util.Log.d("RootManager", "Writing to $path using SuFile")
             
-            Shell.cmd("setenforce 0 2>/dev/null || true").exec()
+            Shell.cmd("mkdir -p /data/user/0/com.netflix.NGP.Kamo/files").exec()
             
-            val result = Shell.cmd(
-                "mkdir -p /data/user/0/com.netflix.NGP.Kamo/files",
-                "cp '${tempFile.absolutePath}' '$path'",
-                "chmod 666 '$path'",
-                "chcon u:object_r:app_data_file:s0 '$path' 2>/dev/null || true"
-            ).exec()
+            val file = com.topjohnwu.superuser.io.SuFile(path)
+            val outputStream = com.topjohnwu.superuser.io.SuFileOutputStream(file)
+            outputStream.bufferedWriter().use { it.write(content) }
             
-            Shell.cmd("setenforce 1 2>/dev/null || true").exec()
+            Shell.cmd("chmod 666 '$path'").exec()
             
-            tempFile.delete()
-            
-            android.util.Log.d("RootManager", "Write result: ${result.isSuccess}")
-            result.isSuccess
+            android.util.Log.d("RootManager", "Successfully wrote ${content.length} bytes using SuFile")
+            true
         } catch (e: Exception) {
             android.util.Log.e("RootManager", "Error writing graphics config", e)
             e.printStackTrace()
@@ -178,16 +171,8 @@ object RootManager {
 
     fun fileExists(path: String): Boolean {
         return try {
-            val result = Shell.cmd(
-                "su -c \"test -f '$path' && echo 'exists' || echo 'not_exists'\""
-            ).exec()
-            
-            if (!result.isSuccess) {
-                val altResult = Shell.cmd("[ -f '$path' ] && echo 'exists' || echo 'not_exists'").exec()
-                return altResult.isSuccess && altResult.out.firstOrNull()?.trim() == "exists"
-            }
-            
-            result.out.firstOrNull()?.trim() == "exists"
+            val file = com.topjohnwu.superuser.io.SuFile(path)
+            file.exists()
         } catch (e: Exception) {
             android.util.Log.e("RootManager", "Error checking file exists", e)
             e.printStackTrace()
@@ -201,46 +186,23 @@ object RootManager {
             
             android.util.Log.d("RootManager", "Attempting to read: $path")
             
-            var result = Shell.cmd(
-                "su 0 cat '$path' 2>&1"
-            ).exec()
+            val file = com.topjohnwu.superuser.io.SuFile(path)
             
-            android.util.Log.d("RootManager", "Method 1 - su 0 cat: success=${result.isSuccess}, out=${result.out.size}, err=${result.err.size}")
-            
-            if (!result.isSuccess || result.out.isEmpty()) {
-                android.util.Log.d("RootManager", "Trying method 2 - direct cat")
-                result = Shell.cmd("cat '$path'").exec()
-                android.util.Log.d("RootManager", "Method 2 - cat: success=${result.isSuccess}, out=${result.out.size}")
-            }
-            
-            if (!result.isSuccess || result.out.isEmpty()) {
-                android.util.Log.d("RootManager", "Trying method 3 - chcon + cat")
-                Shell.cmd(
-                    "chcon u:object_r:system_file:s0 '$path' 2>/dev/null || true",
-                    "chmod 644 '$path' 2>/dev/null || true"
-                ).exec()
-                
-                result = Shell.cmd("cat '$path'").exec()
-                android.util.Log.d("RootManager", "Method 3 - after chcon: success=${result.isSuccess}, out=${result.out.size}")
-            }
-            
-            if (!result.isSuccess || result.out.isEmpty()) {
-                android.util.Log.d("RootManager", "Trying method 4 - setenforce + cat")
-                Shell.cmd("setenforce 0 2>/dev/null || true").exec()
-                result = Shell.cmd("cat '$path'").exec()
-                Shell.cmd("setenforce 1 2>/dev/null || true").exec()
-                android.util.Log.d("RootManager", "Method 4 - setenforce: success=${result.isSuccess}, out=${result.out.size}")
-            }
-            
-            if (result.isSuccess && result.out.isNotEmpty()) {
-                val content = result.out.joinToString("\n")
-                android.util.Log.d("RootManager", "Successfully read ${content.length} bytes")
-                return content
-            } else {
-                android.util.Log.e("RootManager", "All methods failed. Errors: ${result.err.joinToString("\n")}")
-                android.util.Log.e("RootManager", "Output: ${result.out.joinToString("\n")}")
+            if (!file.exists()) {
+                android.util.Log.e("RootManager", "File does not exist: $path")
                 return null
             }
+            
+            if (!file.canRead()) {
+                android.util.Log.w("RootManager", "File not readable, attempting chmod")
+                Shell.cmd("chmod 666 '$path'").exec()
+            }
+            
+            val inputStream = com.topjohnwu.superuser.io.SuFileInputStream(file)
+            val content = inputStream.bufferedReader().use { it.readText() }
+            
+            android.util.Log.d("RootManager", "Successfully read ${content.length} bytes using SuFile")
+            content
         } catch (e: Exception) {
             android.util.Log.e("RootManager", "Exception reading graphics config", e)
             e.printStackTrace()
