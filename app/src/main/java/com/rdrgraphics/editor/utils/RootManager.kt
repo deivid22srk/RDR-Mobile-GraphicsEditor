@@ -29,8 +29,9 @@ object RootManager {
             
             val result = Shell.cmd(
                 "mkdir -p /data/user/0/com.netflix.NGP.Kamo/files",
-                "cat '${tempFile.absolutePath}' > '$path'",
-                "chmod 644 '$path'"
+                "cp '${tempFile.absolutePath}' '$path'",
+                "chmod 644 '$path'",
+                "chown $(stat -c '%u:%g' /data/user/0/com.netflix.NGP.Kamo/files) '$path'"
             ).exec()
             
             tempFile.delete()
@@ -72,8 +73,9 @@ object RootManager {
             
             val writeResult = Shell.cmd(
                 "mkdir -p /storage/emulated/0/Android/data/com.netflix.NGP.Kamo/files",
-                "cat '${tempFile.absolutePath}' > '$path'",
-                "chmod 644 '$path'"
+                "cp '${tempFile.absolutePath}' '$path'",
+                "chmod 644 '$path'",
+                "chown $(stat -c '%u:%g' /storage/emulated/0/Android/data/com.netflix.NGP.Kamo/files) '$path'"
             ).exec()
             
             tempFile.delete()
