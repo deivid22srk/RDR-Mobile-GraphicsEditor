@@ -1,9 +1,13 @@
 package com.rdrgraphics.editor.utils
 
+import android.util.Log
+import com.rdrgraphics.editor.data.XmlParser
 import com.topjohnwu.superuser.Shell
 import java.io.File
 
 object RootManager {
+    private const val TAG = "RootManager"
+    const val GRAPHICS_PATH = "/data/user/0/com.netflix.NGP.Kamo/files/graphics.xml"
     init {
         Shell.enableVerboseLogging = true
         Shell.setDefaultBuilder(
@@ -23,21 +27,30 @@ object RootManager {
 
     fun writeGraphicsConfig(content: String): Boolean {
         return try {
-            val path = "/data/user/0/com.netflix.NGP.Kamo/files/graphics.xml"
             val tempFile = File.createTempFile("graphics", ".xml")
             tempFile.writeText(content)
             
             val result = Shell.cmd(
                 "mkdir -p /data/user/0/com.netflix.NGP.Kamo/files",
-                "cp '${tempFile.absolutePath}' '$path'",
-                "chmod 644 '$path'",
-                "chown $(stat -c '%u:%g' /data/user/0/com.netflix.NGP.Kamo/files) '$path'"
+                "cp '${tempFile.absolutePath}' '$GRAPHICS_PATH'",
+                "chmod 644 '$GRAPHICS_PATH'",
+                "chown $(stat -c '%u:%g' /data/user/0/com.netflix.NGP.Kamo/files) '$GRAPHICS_PATH'"
             ).exec()
             
             tempFile.delete()
             result.isSuccess
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error writing graphics config", e)
+            false
+        }
+    }
+    
+    fun writePartialGraphicsConfig(parsedXml: XmlParser.ParsedXml): Boolean {
+        return try {
+            val modifiedContent = XmlParser.buildModifiedXml(parsedXml)
+            writeGraphicsConfig(modifiedContent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error writing partial graphics config", e)
             false
         }
     }
@@ -88,15 +101,25 @@ object RootManager {
 
     fun readGraphicsConfig(): String? {
         return try {
-            val path = "/data/user/0/com.netflix.NGP.Kamo/files/graphics.xml"
-            val result = Shell.cmd("cat '$path'").exec()
+            val result = Shell.cmd("cat '$GRAPHICS_PATH'").exec()
             if (result.isSuccess && result.out.isNotEmpty()) {
                 result.out.joinToString("\n")
             } else {
+                Log.w(TAG, "Could not read graphics config")
                 null
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error reading graphics config", e)
+            null
+        }
+    }
+    
+    fun parseGraphicsConfig(): XmlParser.ParsedXml? {
+        return try {
+            val content = readGraphicsConfig() ?: return null
+            XmlParser.parseGraphicsXml(content)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing graphics config", e)
             null
         }
     }

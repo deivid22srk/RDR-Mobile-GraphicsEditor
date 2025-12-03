@@ -10,8 +10,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.rdrgraphics.editor.ui.screens.GraphicsScreen
+import com.rdrgraphics.editor.ui.screens.DynamicGraphicsScreen
 import com.rdrgraphics.editor.ui.screens.LanguageScreen
+import com.rdrgraphics.editor.ui.screens.SettingsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +28,7 @@ fun MainScreen() {
                         when (selectedItem) {
                             0 -> "Graphics Settings"
                             1 -> "Language Settings"
+                            2 -> "Settings"
                             else -> "RDR Graphics Editor"
                         }
                     ) 
@@ -61,6 +63,17 @@ fun MainScreen() {
                         }
                     }
                 )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Filled.Settings, contentDescription = "Settings") },
+                    label = { Text("Settings") },
+                    selected = selectedItem == 2,
+                    onClick = {
+                        selectedItem = 2
+                        navController.navigate("settings") {
+                            popUpTo("settings") { inclusive = true }
+                        }
+                    }
+                )
             }
         }
     ) { innerPadding ->
@@ -70,10 +83,13 @@ fun MainScreen() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("graphics") {
-                GraphicsScreen()
+                DynamicGraphicsScreen()
             }
             composable("language") {
                 LanguageScreen()
+            }
+            composable("settings") {
+                SettingsScreen()
             }
         }
     }
