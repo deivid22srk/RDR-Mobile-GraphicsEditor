@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "RDR Graphics Editor"
 include(":app")
+include(":Bcore")

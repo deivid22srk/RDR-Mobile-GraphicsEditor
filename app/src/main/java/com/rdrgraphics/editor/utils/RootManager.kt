@@ -3,10 +3,19 @@ package com.rdrgraphics.editor.utils
 import android.util.Log
 import com.topjohnwu.superuser.Shell
 import com.rdrgraphics.editor.data.GraphicsConfig
+import com.rdrgraphics.editor.blackbox.BlackBoxManager
 import java.io.File
 
 object RootManager {
     private const val TAG = "RDR_RootManager"
+    
+    enum class Mode {
+        ROOT,           // Use root access
+        VIRTUAL,        // Use BlackBox virtual environment
+        AUTO            // Auto-detect
+    }
+    
+    var mode: Mode = Mode.AUTO
     
     init {
         Shell.enableVerboseLogging = true
@@ -27,7 +36,40 @@ object RootManager {
 
     fun writeGraphicsConfig(config: GraphicsConfig): Boolean {
         return try {
-            Log.i(TAG, "Starting writeGraphicsConfig with MERGE strategy")
+            Log.i(TAG, "Starting writeGraphicsConfig with MERGE strategy (Mode: $mode)")
+            
+            // Determine which mode to use
+            val actualMode = when (mode) {
+                Mode.AUTO -> {
+                    if (BlackBoxManager.isGameInstalledInVirtualEnv()) {
+                        Log.i(TAG, "Auto-detected: Using VIRTUAL mode")
+                        Mode.VIRTUAL
+                    } else if (isRootAvailable()) {
+                        Log.i(TAG, "Auto-detected: Using ROOT mode")
+                        Mode.ROOT
+                    } else {
+                        Log.w(TAG, "No viable mode available")
+                        return false
+                    }
+                }
+                else -> mode
+            }
+            
+            when (actualMode) {
+                Mode.VIRTUAL -> writeGraphicsConfigVirtual(config)
+                Mode.ROOT -> writeGraphicsConfigRoot(config)
+                Mode.AUTO -> false // Should not reach here
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception in writeGraphicsConfig", e)
+            e.printStackTrace()
+            false
+        }
+    }
+    
+    private fun writeGraphicsConfigRoot(config: GraphicsConfig): Boolean {
+        return try {
+            Log.i(TAG, "Writing with ROOT mode")
             
             // 1. Try to read existing file first
             val existingXml = XmlManager.readGraphicsXml()
@@ -55,15 +97,52 @@ object RootManager {
             val success = XmlManager.writeGraphicsXml(finalXml)
             
             if (success) {
-                Log.i(TAG, "✓ Graphics config written successfully")
+                Log.i(TAG, "✓ Graphics config written successfully (ROOT)")
             } else {
-                Log.e(TAG, "✗ Failed to write graphics config")
+                Log.e(TAG, "✗ Failed to write graphics config (ROOT)")
             }
             
             success
         } catch (e: Exception) {
-            Log.e(TAG, "Exception in writeGraphicsConfig", e)
-            e.printStackTrace()
+            Log.e(TAG, "Exception in writeGraphicsConfigRoot", e)
+            false
+        }
+    }
+    
+    private fun writeGraphicsConfigVirtual(config: GraphicsConfig): Boolean {
+        return try {
+            Log.i(TAG, "Writing with VIRTUAL mode")
+            
+            // 1. Try to read existing file from virtual env
+            val existingXml = BlackBoxManager.readGraphicsXmlFromVirtual()
+            
+            val finalXml = if (existingXml != null) {
+                Log.i(TAG, "Found existing graphics.xml in virtual env, merging changes...")
+                
+                val existingValues = XmlManager.parseXmlToMap(existingXml)
+                Log.d(TAG, "Existing values: ${existingValues.size} entries")
+                
+                val updates = config.toUpdateMap()
+                Log.d(TAG, "New values: ${updates.size} updates")
+                
+                XmlManager.updateXmlValues(existingXml, updates)
+            } else {
+                Log.w(TAG, "No existing graphics.xml found in virtual env, creating new file")
+                config.toXml()
+            }
+            
+            // 2. Write to virtual environment
+            val success = BlackBoxManager.writeGraphicsXmlToVirtual(finalXml)
+            
+            if (success) {
+                Log.i(TAG, "✓ Graphics config written successfully (VIRTUAL)")
+            } else {
+                Log.e(TAG, "✗ Failed to write graphics config (VIRTUAL)")
+            }
+            
+            success
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception in writeGraphicsConfigVirtual", e)
             false
         }
     }

@@ -17,6 +17,10 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {
@@ -61,6 +65,9 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.6")
     
     implementation("com.github.topjohnwu.libsu:core:5.2.2")
+    
+    // BlackBox Virtual Environment
+    implementation(project(":Bcore"))
     
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
