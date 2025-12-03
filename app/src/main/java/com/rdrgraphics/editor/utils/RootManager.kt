@@ -1,6 +1,7 @@
 package com.rdrgraphics.editor.utils
 
 import android.util.Log
+import com.rdrgraphics.editor.data.FileItem
 import com.rdrgraphics.editor.data.XmlParser
 import com.topjohnwu.superuser.Shell
 import java.io.File
@@ -46,11 +47,35 @@ object RootManager {
     }
     
     fun writePartialGraphicsConfig(parsedXml: XmlParser.ParsedXml): Boolean {
+        return writePartialXmlFile(GRAPHICS_PATH, parsedXml)
+    }
+    
+    fun writePartialXmlFile(path: String, parsedXml: XmlParser.ParsedXml): Boolean {
         return try {
             val modifiedContent = XmlParser.buildModifiedXml(parsedXml)
-            writeGraphicsConfig(modifiedContent)
+            writeXmlFile(path, modifiedContent)
         } catch (e: Exception) {
-            Log.e(TAG, "Error writing partial graphics config", e)
+            Log.e(TAG, "Error writing partial XML file: $path", e)
+            false
+        }
+    }
+    
+    fun writeXmlFile(path: String, content: String): Boolean {
+        return try {
+            val tempFile = File.createTempFile("xml", ".xml")
+            tempFile.writeText(content)
+            
+            val dir = path.substringBeforeLast("/")
+            val result = Shell.cmd(
+                "mkdir -p '$dir'",
+                "cp '${tempFile.absolutePath}' '$path'",
+                "chmod 644 '$path'"
+            ).exec()
+            
+            tempFile.delete()
+            result.isSuccess
+        } catch (e: Exception) {
+            Log.e(TAG, "Error writing XML file: $path", e)
             false
         }
     }
@@ -100,26 +125,34 @@ object RootManager {
     }
 
     fun readGraphicsConfig(): String? {
+        return readXmlFile(GRAPHICS_PATH)
+    }
+    
+    fun readXmlFile(path: String): String? {
         return try {
-            val result = Shell.cmd("cat '$GRAPHICS_PATH'").exec()
+            val result = Shell.cmd("cat '$path'").exec()
             if (result.isSuccess && result.out.isNotEmpty()) {
                 result.out.joinToString("\n")
             } else {
-                Log.w(TAG, "Could not read graphics config")
+                Log.w(TAG, "Could not read file: $path")
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading graphics config", e)
+            Log.e(TAG, "Error reading file: $path", e)
             null
         }
     }
     
     fun parseGraphicsConfig(): XmlParser.ParsedXml? {
+        return parseXmlFile(GRAPHICS_PATH)
+    }
+    
+    fun parseXmlFile(path: String): XmlParser.ParsedXml? {
         return try {
-            val content = readGraphicsConfig() ?: return null
+            val content = readXmlFile(path) ?: return null
             XmlParser.parseGraphicsXml(content)
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing graphics config", e)
+            Log.e(TAG, "Error parsing XML file: $path", e)
             null
         }
     }
@@ -156,6 +189,63 @@ object RootManager {
             result.out.joinToString("\n")
         } catch (e: Exception) {
             e.toString()
+        }
+    }
+    
+    fun listDirectory(path: String): List<FileItem> {
+        return try {
+            val result = Shell.cmd("ls -la '$path' 2>/dev/null").exec()
+            if (!result.isSuccess || result.out.isEmpty()) {
+                return emptyList()
+            }
+            
+            val items = mutableListOf<FileItem>()
+            
+            for (line in result.out) {
+                if (line.isEmpty() || line.startsWith("total")) continue
+                
+                val parts = line.split(Regex("\\s+"), limit = 9)
+                if (parts.size < 9) continue
+                
+                val permissions = parts[0]
+                val name = parts[8]
+                
+                if (name == "." || name == "..") continue
+                
+                val isDirectory = permissions.startsWith("d")
+                val fullPath = if (path.endsWith("/")) "$path$name" else "$path/$name"
+                
+                val sizeStr = parts[4]
+                val size = sizeStr.toLongOrNull() ?: 0L
+                
+                val isXml = name.endsWith(".xml", ignoreCase = true)
+                
+                items.add(
+                    FileItem(
+                        name = name,
+                        path = fullPath,
+                        isDirectory = isDirectory,
+                        size = size,
+                        permissions = permissions,
+                        isXml = isXml
+                    )
+                )
+            }
+            
+            items.sortedWith(compareBy<FileItem> { !it.isDirectory }.thenBy { it.name })
+        } catch (e: Exception) {
+            Log.e(TAG, "Error listing directory: $path", e)
+            emptyList()
+        }
+    }
+    
+    fun directoryExists(path: String): Boolean {
+        return try {
+            val result = Shell.cmd("[ -d '$path' ] && echo 'exists'").exec()
+            result.isSuccess && result.out.firstOrNull() == "exists"
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking directory: $path", e)
+            false
         }
     }
 }

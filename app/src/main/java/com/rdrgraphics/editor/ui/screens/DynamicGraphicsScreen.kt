@@ -19,15 +19,20 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DynamicGraphicsScreen() {
+fun DynamicGraphicsScreen(
+    xmlFilePath: String? = null
+) {
+    val filePath = xmlFilePath ?: RootManager.GRAPHICS_PATH
     var parsedXml by remember { mutableStateOf<XmlParser.ParsedXml?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var currentFilePath by remember { mutableStateOf(filePath) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     
-    LaunchedEffect(Unit) {
+    LaunchedEffect(currentFilePath) {
         isLoading = true
+        error = null
         val hasRoot = withContext(Dispatchers.IO) {
             RootManager.isRootAvailable()
         }
@@ -39,11 +44,11 @@ fun DynamicGraphicsScreen() {
         }
         
         val parsed = withContext(Dispatchers.IO) {
-            RootManager.parseGraphicsConfig()
+            RootManager.parseXmlFile(currentFilePath)
         }
         
         if (parsed == null) {
-            error = "Could not read graphics.xml. Make sure the game is installed."
+            error = "Could not read XML file: $currentFilePath"
             isLoading = false
             return@LaunchedEffect
         }
@@ -62,7 +67,7 @@ fun DynamicGraphicsScreen() {
                             parsedXml?.let { xml ->
                                 snackbarHostState.showSnackbar("Applying changes...")
                                 val success = withContext(Dispatchers.IO) {
-                                    RootManager.writePartialGraphicsConfig(xml)
+                                    RootManager.writePartialXmlFile(currentFilePath, xml)
                                 }
                                 
                                 snackbarHostState.showSnackbar(
@@ -137,15 +142,47 @@ fun DynamicGraphicsScreen() {
                 }
             }
             parsedXml != null -> {
-                DynamicFieldsList(
-                    parsedXml = parsedXml!!,
-                    onFieldChanged = { field ->
-                        field.isModified = true
-                    },
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                )
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        tonalElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Description,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = currentFilePath,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    
+                    DynamicFieldsList(
+                        parsedXml = parsedXml!!,
+                        onFieldChanged = { field ->
+                            field.isModified = true
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
         }
     }
