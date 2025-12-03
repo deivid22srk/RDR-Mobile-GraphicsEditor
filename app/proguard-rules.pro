@@ -1,0 +1,1 @@
+-keep class * extends com.topjohnwu.superuser.Shell$Initializer { <init>(...); }
