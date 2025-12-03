@@ -5,7 +5,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,7 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.rdrgraphics.editor.data.GraphicsConfig
 import com.rdrgraphics.editor.utils.RootManager
-import com.rdrgraphics.editor.utils.DiagnosticManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -24,22 +22,8 @@ fun GraphicsScreen() {
     var config by remember { mutableStateOf(GraphicsConfig()) }
     var showSnackbar by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf("") }
-    var showDiagnosticDialog by remember { mutableStateOf(false) }
-    var diagnosticReport by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    
-    LaunchedEffect(Unit) {
-        val existingConfig = withContext(Dispatchers.IO) {
-            RootManager.readGraphicsConfig()
-        }
-        if (existingConfig != null) {
-            config = existingConfig
-            snackbarHostState.showSnackbar("Loaded existing settings from graphics.xml")
-        } else {
-            snackbarHostState.showSnackbar("No existing graphics.xml found, using defaults")
-        }
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -52,9 +36,9 @@ fun GraphicsScreen() {
                             RootManager.isRootAvailable()
                         }
                         if (isRoot) {
-                            snackbarHostState.showSnackbar("Saving graphics configuration...")
+                            snackbarHostState.showSnackbar("Writing graphics configuration...")
                             val success = withContext(Dispatchers.IO) {
-                                RootManager.writeGraphicsConfig(config)
+                                RootManager.writeGraphicsConfig(config.toXml())
                             }
                             snackbarMessage = if (success) {
                                 "Graphics settings applied successfully!"
@@ -103,28 +87,6 @@ fun GraphicsScreen() {
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Button(
-                onClick = {
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Running diagnostic...")
-                        diagnosticReport = withContext(Dispatchers.IO) {
-                            DiagnosticManager.getDetailedReport()
-                        }
-                        showDiagnosticDialog = true
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Icon(Icons.Filled.BugReport, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("🔍 Run Diagnostic Test")
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -341,49 +303,6 @@ fun GraphicsScreen() {
             )
 
             Spacer(modifier = Modifier.height(80.dp))
-        }
-        
-        if (showDiagnosticDialog) {
-            AlertDialog(
-                onDismissRequest = { showDiagnosticDialog = false },
-                title = { Text("\ud83d\udd0d Diagnostic Report") },
-                text = {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        Text(
-                            diagnosticReport,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                val exported = withContext(Dispatchers.IO) {
-                                    DiagnosticManager.exportDiagnosticToFile()
-                                }
-                                if (exported != null) {
-                                    snackbarHostState.showSnackbar("Exported to: $exported")
-                                } else {
-                                    snackbarHostState.showSnackbar("Failed to export")
-                                }
-                            }
-                        }
-                    ) {
-                        Text("Export to File")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDiagnosticDialog = false }) {
-                        Text("Close")
-                    }
-                }
-            )
         }
     }
 }

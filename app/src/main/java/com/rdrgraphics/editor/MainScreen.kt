@@ -12,7 +12,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.rdrgraphics.editor.ui.screens.GraphicsScreen
 import com.rdrgraphics.editor.ui.screens.LanguageScreen
-import com.rdrgraphics.editor.ui.screens.VirtualEnvScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,9 +25,8 @@ fun MainScreen() {
                 title = { 
                     Text(
                         when (selectedItem) {
-                            0 -> "Virtual Environment"
-                            1 -> "Graphics Settings"
-                            2 -> "Language Settings"
+                            0 -> "Graphics Settings"
+                            1 -> "Language Settings"
                             else -> "RDR Graphics Editor"
                         }
                     ) 
@@ -42,22 +40,11 @@ fun MainScreen() {
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    icon = { Icon(Icons.Filled.CellTower, contentDescription = "Virtual") },
-                    label = { Text("Virtual") },
+                    icon = { Icon(Icons.Filled.Tune, contentDescription = "Graphics") },
+                    label = { Text("Graphics") },
                     selected = selectedItem == 0,
                     onClick = {
                         selectedItem = 0
-                        navController.navigate("virtual") {
-                            popUpTo("virtual") { inclusive = true }
-                        }
-                    }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Filled.Tune, contentDescription = "Graphics") },
-                    label = { Text("Graphics") },
-                    selected = selectedItem == 1,
-                    onClick = {
-                        selectedItem = 1
                         navController.navigate("graphics") {
                             popUpTo("graphics") { inclusive = true }
                         }
@@ -66,9 +53,9 @@ fun MainScreen() {
                 NavigationBarItem(
                     icon = { Icon(Icons.Filled.Language, contentDescription = "Language") },
                     label = { Text("Language") },
-                    selected = selectedItem == 2,
+                    selected = selectedItem == 1,
                     onClick = {
-                        selectedItem = 2
+                        selectedItem = 1
                         navController.navigate("language") {
                             popUpTo("language") { inclusive = true }
                         }
@@ -79,12 +66,9 @@ fun MainScreen() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = "virtual",
+            startDestination = "graphics",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("virtual") {
-                VirtualEnvScreen()
-            }
             composable("graphics") {
                 GraphicsScreen()
             }
