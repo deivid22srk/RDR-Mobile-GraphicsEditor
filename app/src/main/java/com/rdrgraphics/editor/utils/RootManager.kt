@@ -1,9 +1,13 @@
 package com.rdrgraphics.editor.utils
 
+import android.util.Log
 import com.topjohnwu.superuser.Shell
+import com.rdrgraphics.editor.data.GraphicsConfig
 import java.io.File
 
 object RootManager {
+    private const val TAG = "RDR_RootManager"
+    
     init {
         Shell.enableVerboseLogging = true
         Shell.setDefaultBuilder(
@@ -21,24 +25,65 @@ object RootManager {
         }
     }
 
-    fun writeGraphicsConfig(content: String): Boolean {
+    fun writeGraphicsConfig(config: GraphicsConfig): Boolean {
         return try {
-            val path = "/data/user/0/com.netflix.NGP.Kamo/files/graphics.xml"
-            val tempFile = File.createTempFile("graphics", ".xml")
-            tempFile.writeText(content)
+            Log.i(TAG, "Starting writeGraphicsConfig with MERGE strategy")
             
-            val result = Shell.cmd(
-                "mkdir -p /data/user/0/com.netflix.NGP.Kamo/files",
-                "cp '${tempFile.absolutePath}' '$path'",
-                "chmod 644 '$path'",
-                "chown $(stat -c '%u:%g' /data/user/0/com.netflix.NGP.Kamo/files) '$path'"
-            ).exec()
+            // 1. Try to read existing file first
+            val existingXml = XmlManager.readGraphicsXml()
             
-            tempFile.delete()
-            result.isSuccess
+            val finalXml = if (existingXml != null) {
+                Log.i(TAG, "Found existing graphics.xml, merging changes...")
+                
+                // Parse existing values
+                val existingValues = XmlManager.parseXmlToMap(existingXml)
+                Log.d(TAG, "Existing values: ${existingValues.size} entries")
+                
+                // Create updates map with only changed values
+                val updates = config.toUpdateMap()
+                Log.d(TAG, "New values: ${updates.size} updates")
+                
+                // Merge: keep existing values, override with new ones
+                XmlManager.updateXmlValues(existingXml, updates)
+            } else {
+                Log.w(TAG, "No existing graphics.xml found, creating new file")
+                // No existing file, create fresh XML
+                config.toXml()
+            }
+            
+            // 2. Write the merged/new XML
+            val success = XmlManager.writeGraphicsXml(finalXml)
+            
+            if (success) {
+                Log.i(TAG, "✓ Graphics config written successfully")
+            } else {
+                Log.e(TAG, "✗ Failed to write graphics config")
+            }
+            
+            success
         } catch (e: Exception) {
+            Log.e(TAG, "Exception in writeGraphicsConfig", e)
             e.printStackTrace()
             false
+        }
+    }
+    
+    fun readGraphicsConfig(): GraphicsConfig? {
+        return try {
+            Log.i(TAG, "Reading current graphics config")
+            val xml = XmlManager.readGraphicsXml() ?: return null
+            
+            val values = XmlManager.parseXmlToMap(xml)
+            if (values.isEmpty()) {
+                Log.w(TAG, "No values parsed from XML")
+                return null
+            }
+            
+            // Convert map to GraphicsConfig
+            GraphicsConfig.fromMap(values)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading graphics config", e)
+            null
         }
     }
 
