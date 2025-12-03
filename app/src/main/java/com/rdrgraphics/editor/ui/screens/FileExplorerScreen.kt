@@ -24,11 +24,13 @@ import kotlinx.coroutines.withContext
 fun FileExplorerScreen(
     onXmlSelected: (String) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var currentPath by remember { mutableStateOf("/data/user/0") }
     var files by remember { mutableStateOf<List<FileItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var hasRootAccess by remember { mutableStateOf(false) }
+    var hasStoragePermission by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     
     fun loadDirectory(path: String) {
@@ -51,6 +53,14 @@ fun FileExplorerScreen(
     }
     
     LaunchedEffect(Unit) {
+        hasStoragePermission = com.rdrgraphics.editor.utils.PermissionManager.hasStoragePermissions(context)
+        
+        if (!hasStoragePermission) {
+            error = "Storage permission required"
+            isLoading = false
+            return@LaunchedEffect
+        }
+        
         hasRootAccess = withContext(Dispatchers.IO) {
             RootManager.isRootAvailable()
         }
@@ -133,7 +143,7 @@ fun FileExplorerScreen(
                     }
                 }
             }
-            error != null && !hasRootAccess -> {
+            error != null && (!hasRootAccess || !hasStoragePermission) -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -158,15 +168,20 @@ fun FileExplorerScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                "Root Access Required",
+                                if (!hasStoragePermission) "Storage Permission Required" else "Root Access Required",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                "This app requires root access to browse system files. Please grant root access and restart.",
+                                if (!hasStoragePermission) {
+                                    "This app requires storage permission to browse files. Please grant the permission in app settings."
+                                } else {
+                                    "This app requires root access to browse system files. Please grant root access and restart."
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
                             )
                         }
                     }
