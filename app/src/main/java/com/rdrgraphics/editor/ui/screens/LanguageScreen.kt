@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.rdrgraphics.editor.data.LanguageConfig
@@ -18,12 +19,21 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LanguageScreen() {
-    var config by remember { mutableStateOf(LanguageConfig()) }
-    var profileId by remember { mutableStateOf(config.profileId) }
-    var selectedLanguage by remember { mutableStateOf(config.language) }
+    var selectedLanguage by remember { mutableStateOf("en-US") }
     var showDropdown by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val currentLang = RootManager.getCurrentLanguage()
+            if (currentLang != null) {
+                selectedLanguage = currentLang
+            }
+            isLoading = false
+        }
+    }
 
     val languages = listOf(
         "en-US" to "English (US)",
@@ -49,21 +59,17 @@ fun LanguageScreen() {
             ExtendedFloatingActionButton(
                 onClick = {
                     scope.launch {
-                        val updatedConfig = config.copy(
-                            profileId = profileId,
-                            language = selectedLanguage
-                        )
                         val isRoot = withContext(Dispatchers.IO) {
                             RootManager.isRootAvailable()
                         }
                         if (isRoot) {
                             val success = withContext(Dispatchers.IO) {
-                                RootManager.writeLanguageConfig(updatedConfig.toProperties())
+                                RootManager.updateLanguageOnly(selectedLanguage)
                             }
                             val message = if (success) {
-                                "Language settings applied successfully!"
+                                "Language changed to $selectedLanguage successfully!"
                             } else {
-                                "Error applying settings"
+                                "Error: Could not update language. Check if game is installed."
                             }
                             snackbarHostState.showSnackbar(message)
                         } else {
@@ -99,8 +105,9 @@ fun LanguageScreen() {
                         "Language Configuration",
                         style = MaterialTheme.typography.titleMedium
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Configure game language and profile settings",
+                        "Only the LANGUAGE line will be modified. All other settings in netflix.dat will be preserved.",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -108,16 +115,17 @@ fun LanguageScreen() {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            OutlinedTextField(
-                value = profileId,
-                onValueChange = { profileId = it },
-                label = { Text("Profile ID") },
-                leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            if (isLoading) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Loading current language...")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             ExposedDropdownMenuBox(
                 expanded = showDropdown,
@@ -166,18 +174,18 @@ fun LanguageScreen() {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Current Configuration",
+                        "Selected Language",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Profile ID: $profileId",
+                        "Code: $selectedLanguage",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                     Text(
-                        "Language: ${languages.find { it.first == selectedLanguage }?.second ?: selectedLanguage}",
+                        "Name: ${languages.find { it.first == selectedLanguage }?.second ?: selectedLanguage}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )

@@ -31,22 +31,27 @@ fun GraphicsScreen() {
             ExtendedFloatingActionButton(
                 onClick = {
                     scope.launch {
+                        snackbarHostState.showSnackbar("Checking root access...")
                         val isRoot = withContext(Dispatchers.IO) {
                             RootManager.isRootAvailable()
                         }
                         if (isRoot) {
+                            snackbarHostState.showSnackbar("Writing graphics configuration...")
                             val success = withContext(Dispatchers.IO) {
                                 RootManager.writeGraphicsConfig(config.toXml())
                             }
                             snackbarMessage = if (success) {
-                                "Settings applied successfully!"
+                                "Graphics settings applied successfully!"
                             } else {
-                                "Error applying settings"
+                                "Error: Could not write graphics.xml. Check if game is installed."
                             }
                         } else {
-                            snackbarMessage = "Root access required"
+                            snackbarMessage = "Error: Root access denied or not available"
                         }
-                        snackbarHostState.showSnackbar(snackbarMessage)
+                        snackbarHostState.showSnackbar(
+                            message = snackbarMessage,
+                            duration = SnackbarDuration.Long
+                        )
                     }
                 },
                 icon = { Icon(Icons.Filled.Check, "Apply") },
