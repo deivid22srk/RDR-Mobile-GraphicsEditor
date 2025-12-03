@@ -42,6 +42,92 @@ object RootManager {
         }
     }
 
+    fun updateGraphicsField(fieldName: String, newValue: String): Boolean {
+        return try {
+            val path = "/data/user/0/com.netflix.NGP.Kamo/files/graphics.xml"
+            
+            val readResult = Shell.cmd("cat '$path'").exec()
+            if (!readResult.isSuccess || readResult.out.isEmpty()) {
+                return false
+            }
+            
+            val currentContent = readResult.out.joinToString("\n")
+            val lines = currentContent.lines().toMutableList()
+            
+            var fieldUpdated = false
+            for (i in lines.indices) {
+                val line = lines[i]
+                if (line.contains("<$fieldName") && line.contains("value=")) {
+                    val regex = Regex("""(<$fieldName\\s+value=\")[^\"]*(\".*/?>)""")
+                    lines[i] = regex.replace(line, "$1$newValue$2")
+                    fieldUpdated = true
+                    break
+                }
+            }
+            
+            if (!fieldUpdated) return false
+            
+            val newContent = lines.joinToString("\n")
+            val tempFile = File.createTempFile("graphics", ".xml")
+            tempFile.writeText(newContent)
+            
+            val writeResult = Shell.cmd(
+                "cp '${tempFile.absolutePath}' '$path'",
+                "chmod 644 '$path'",
+                "chown $(stat -c '%u:%g' /data/user/0/com.netflix.NGP.Kamo/files) '$path'"
+            ).exec()
+            
+            tempFile.delete()
+            writeResult.isSuccess
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    fun updateMultipleGraphicsFields(updates: Map<String, String>): Boolean {
+        return try {
+            val path = "/data/user/0/com.netflix.NGP.Kamo/files/graphics.xml"
+            
+            val readResult = Shell.cmd("cat '$path'").exec()
+            if (!readResult.isSuccess || readResult.out.isEmpty()) {
+                return false
+            }
+            
+            var currentContent = readResult.out.joinToString("\n")
+            
+            for ((fieldName, newValue) in updates) {
+                val lines = currentContent.lines().toMutableList()
+                
+                for (i in lines.indices) {
+                    val line = lines[i]
+                    if (line.contains("<$fieldName") && line.contains("value=")) {
+                        val regex = Regex("""(<$fieldName\\s+value=\")[^\"]*(\".*/?>)""")
+                        lines[i] = regex.replace(line, "$1$newValue$2")
+                        break
+                    }
+                }
+                
+                currentContent = lines.joinToString("\n")
+            }
+            
+            val tempFile = File.createTempFile("graphics", ".xml")
+            tempFile.writeText(currentContent)
+            
+            val writeResult = Shell.cmd(
+                "cp '${tempFile.absolutePath}' '$path'",
+                "chmod 644 '$path'",
+                "chown $(stat -c '%u:%g' /data/user/0/com.netflix.NGP.Kamo/files) '$path'"
+            ).exec()
+            
+            tempFile.delete()
+            writeResult.isSuccess
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
     fun updateLanguageOnly(newLanguage: String): Boolean {
         return try {
             val path = "/storage/emulated/0/Android/data/com.netflix.NGP.Kamo/files/netflix.dat"
