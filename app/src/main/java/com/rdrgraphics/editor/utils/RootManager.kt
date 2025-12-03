@@ -1,6 +1,9 @@
 package com.rdrgraphics.editor.utils
 
 import com.topjohnwu.superuser.Shell
+import com.topjohnwu.superuser.io.SuFile
+import com.topjohnwu.superuser.io.SuFileInputStream
+import com.topjohnwu.superuser.io.SuFileOutputStream
 import java.io.File
 
 object RootManager {
@@ -29,8 +32,8 @@ object RootManager {
             
             Shell.cmd("mkdir -p /data/user/0/com.netflix.NGP.Kamo/files").exec()
             
-            val file = com.topjohnwu.superuser.io.SuFile(path)
-            val outputStream = com.topjohnwu.superuser.io.SuFileOutputStream(file)
+            val file = SuFile(path)
+            val outputStream = SuFileOutputStream(file)
             outputStream.bufferedWriter().use { it.write(content) }
             
             Shell.cmd("chmod 666 '$path'").exec()
@@ -171,7 +174,7 @@ object RootManager {
 
     fun fileExists(path: String): Boolean {
         return try {
-            val file = com.topjohnwu.superuser.io.SuFile(path)
+            val file = SuFile(path)
             file.exists()
         } catch (e: Exception) {
             android.util.Log.e("RootManager", "Error checking file exists", e)
@@ -186,7 +189,7 @@ object RootManager {
             
             android.util.Log.d("RootManager", "Attempting to read: $path")
             
-            val file = com.topjohnwu.superuser.io.SuFile(path)
+            val file = SuFile(path)
             
             if (!file.exists()) {
                 android.util.Log.e("RootManager", "File does not exist: $path")
@@ -198,7 +201,7 @@ object RootManager {
                 Shell.cmd("chmod 666 '$path'").exec()
             }
             
-            val inputStream = com.topjohnwu.superuser.io.SuFileInputStream(file)
+            val inputStream = SuFileInputStream(file)
             val content = inputStream.bufferedReader().use { it.readText() }
             
             android.util.Log.d("RootManager", "Successfully read ${content.length} bytes using SuFile")
