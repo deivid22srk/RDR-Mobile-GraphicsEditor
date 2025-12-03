@@ -254,7 +254,6 @@ fun DynamicGraphicsScreen() {
                             Text("Use Default Config")
                         }
                     }
-                    }
                 }
             }
         } else {
@@ -354,45 +353,45 @@ fun DynamicGraphicsScreen() {
                 Spacer(modifier = Modifier.height(80.dp))
             }
         }
-    }
-    
-    if (showDiagnostics) {
-        AlertDialog(
-            onDismissRequest = { showDiagnostics = false },
-            title = { Text("Diagnostic Report") },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Text(
-                        diagnosticReport,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("Diagnostics", diagnosticReport)
-                        clipboard.setPrimaryClip(clip)
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Copied to clipboard")
-                        }
+        
+        if (showDiagnostics) {
+            AlertDialog(
+                onDismissRequest = { showDiagnostics = false },
+                title = { Text("Diagnostic Report") },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            diagnosticReport,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
                     }
-                ) {
-                    Text("Copy")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("Diagnostics", diagnosticReport)
+                            clipboard.setPrimaryClip(clip)
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Copied to clipboard")
+                            }
+                        }
+                    ) {
+                        Text("Copy")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDiagnostics = false }) {
+                        Text("Close")
+                    }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDiagnostics = false }) {
-                    Text("Close")
-                }
-            }
-        )
+            )
+        }
     }
 }
 

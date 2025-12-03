@@ -101,12 +101,12 @@ object RootManager {
             android.util.Log.d("RootManager", "Updating ${updates.size} fields")
             
             val currentContent = readGraphicsConfig()
-            if (currentContent == null) {
+            if (currentContent == null || currentContent.isEmpty()) {
                 android.util.Log.e("RootManager", "Failed to read current config for update")
                 return false
             }
             
-            var modifiedContent = currentContent
+            var modifiedContent: String = currentContent
             
             for ((fieldName, newValue) in updates) {
                 val lines = modifiedContent.lines().toMutableList()
