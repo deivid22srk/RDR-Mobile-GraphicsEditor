@@ -5,15 +5,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import com.rdrgraphics.editor.data.XmlField
 import com.rdrgraphics.editor.data.XmlParser
+import com.rdrgraphics.editor.utils.DiagnosticHelper
 import com.rdrgraphics.editor.utils.RootManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,34 +36,69 @@ fun DynamicGraphicsScreen() {
     var isLoading by remember { mutableStateOf(true) }
     var hasRootAccess by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var errorDetails by remember { mutableStateOf<String?>(null) }
+    var showCreateFileDialog by remember { mutableStateOf(false) }
     var modifiedFields by remember { mutableStateOf<MutableMap<String, String>>(mutableMapOf()) }
+    var useDefaultConfig by remember { mutableStateOf(false) }
+    var showDiagnostics by remember { mutableStateOf(false) }
+    var diagnosticReport by remember { mutableStateOf("") }
     
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
-    LaunchedEffect(Unit) {
+    fun loadGraphicsConfig() {
         scope.launch {
+            isLoading = true
+            errorMessage = null
             withContext(Dispatchers.IO) {
                 val rootAvailable = RootManager.isRootAvailable()
                 hasRootAccess = rootAvailable
                 
                 if (rootAvailable) {
-                    val xmlContent = RootManager.readGraphicsConfig()
+                    val xmlContent = if (useDefaultConfig) {
+                        RootManager.getDefaultGraphicsXml()
+                    } else {
+                        RootManager.readGraphicsConfig()
+                    }
+                    
                     if (xmlContent != null) {
                         val (parsedRootTag, parsedFields) = XmlParser.parseGraphicsXml(xmlContent)
                         rootTag = parsedRootTag
                         fields = parsedFields
                         errorMessage = null
+                        errorDetails = null
                     } else {
-                        errorMessage = "Failed to read graphics.xml from device"
+                        val path = "/data/user/0/com.netflix.NGP.Kamo/files/graphics.xml"
+                        val fileExists = RootManager.fileExists(path)
+                        val dirExists = RootManager.fileExists("/data/user/0/com.netflix.NGP.Kamo/files")
+                        val appInstalled = RootManager.fileExists("/data/user/0/com.netflix.NGP.Kamo")
+                        
+                        errorMessage = if (!appInstalled) {
+                            "Game not installed or not found"
+                        } else if (!dirExists) {
+                            "Game files directory not found"
+                        } else if (!fileExists) {
+                            "graphics.xml not found on device"
+                        } else {
+                            "Failed to read graphics.xml"
+                        }
+                        
+                        errorDetails = "Path: $path\nGame dir exists: $appInstalled\nFiles dir exists: $dirExists\nXML exists: $fileExists"
+                        showCreateFileDialog = appInstalled && !fileExists
                     }
                 } else {
                     errorMessage = "Root access not available"
+                    errorDetails = "This app requires root access to read/write game files. Please grant root access when prompted."
                 }
                 
                 isLoading = false
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        loadGraphicsConfig()
     }
 
     Scaffold(
@@ -124,37 +168,92 @@ fun DynamicGraphicsScreen() {
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.error
                     )
+                    if (errorDetails != null) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Text(
+                                errorDetails!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                isLoading = true
-                                withContext(Dispatchers.IO) {
-                                    val rootAvailable = RootManager.isRootAvailable()
-                                    hasRootAccess = rootAvailable
-                                    
-                                    if (rootAvailable) {
-                                        val xmlContent = RootManager.readGraphicsConfig()
-                                        if (xmlContent != null) {
-                                            val (parsedRootTag, parsedFields) = XmlParser.parseGraphicsXml(xmlContent)
-                                            rootTag = parsedRootTag
-                                            fields = parsedFields
-                                            errorMessage = null
-                                        } else {
-                                            errorMessage = "Failed to read graphics.xml from device"
-                                        }
-                                    } else {
-                                        errorMessage = "Root access not available"
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = { loadGraphicsConfig() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Filled.Refresh, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Retry")
+                        }
+                        
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    isLoading = true
+                                    diagnosticReport = withContext(Dispatchers.IO) {
+                                        DiagnosticHelper.runDiagnostics(context)
                                     }
-                                    
                                     isLoading = false
+                                    showDiagnostics = true
                                 }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Diagnostics")
+                        }
+                        
+                        if (showCreateFileDialog) {
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        isLoading = true
+                                        val success = withContext(Dispatchers.IO) {
+                                            val defaultXml = RootManager.getDefaultGraphicsXml()
+                                            RootManager.writeGraphicsConfig(defaultXml)
+                                        }
+                                        
+                                        if (success) {
+                                            snackbarHostState.showSnackbar("Default file created successfully")
+                                            useDefaultConfig = false
+                                            loadGraphicsConfig()
+                                        } else {
+                                            isLoading = false
+                                            snackbarHostState.showSnackbar("Failed to create file")
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary
+                                )
+                            ) {
+                                Icon(Icons.Filled.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Create File")
                             }
                         }
-                    ) {
-                        Icon(Icons.Filled.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Retry")
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                useDefaultConfig = true
+                                loadGraphicsConfig()
+                            }
+                        ) {
+                            Text("Use Default Config")
+                        }
+                    }
                     }
                 }
             }
@@ -171,18 +270,24 @@ fun DynamicGraphicsScreen() {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = if (useDefaultConfig) 
+                            MaterialTheme.colorScheme.tertiaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.primaryContainer
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Icon(Icons.Filled.CheckCircle, contentDescription = null)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Graphics Configuration Loaded",
+                            if (useDefaultConfig) "Using Default Configuration" else "Graphics Configuration Loaded",
                             style = MaterialTheme.typography.titleMedium
                         )
                         Text(
-                            "Loaded ${fields.size} settings from device",
+                            if (useDefaultConfig) 
+                                "Loaded ${fields.size} settings from default template. Changes will create the file on device."
+                            else
+                                "Loaded ${fields.size} settings from device",
                             style = MaterialTheme.typography.bodySmall
                         )
                         if (modifiedFields.isNotEmpty()) {
@@ -249,6 +354,45 @@ fun DynamicGraphicsScreen() {
                 Spacer(modifier = Modifier.height(80.dp))
             }
         }
+    }
+    
+    if (showDiagnostics) {
+        AlertDialog(
+            onDismissRequest = { showDiagnostics = false },
+            title = { Text("Diagnostic Report") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        diagnosticReport,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = ClipData.newPlainText("Diagnostics", diagnosticReport)
+                        clipboard.setPrimaryClip(clip)
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Copied to clipboard")
+                        }
+                    }
+                ) {
+                    Text("Copy")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiagnostics = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 }
 
