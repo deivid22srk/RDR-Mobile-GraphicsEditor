@@ -100,7 +100,7 @@ fun DynamicGraphicsScreen(
                         .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterVertically) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
                         Text("Reading XML file...", style = MaterialTheme.typography.bodyMedium)
