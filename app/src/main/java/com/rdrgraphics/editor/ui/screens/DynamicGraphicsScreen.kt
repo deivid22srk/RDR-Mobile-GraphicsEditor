@@ -30,6 +30,7 @@ fun DynamicGraphicsScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var currentFileUri by remember { mutableStateOf(xmlFileUri) }
     var fileName by remember { mutableStateOf<String?>(null) }
+    var updateTrigger by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     
@@ -182,8 +183,10 @@ fun DynamicGraphicsScreen(
                         parsedXml = parsedXml!!,
                         onFieldChanged = { field ->
                             field.isModified = true
+                            updateTrigger++
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        updateTrigger = updateTrigger
                     )
                 }
             }
@@ -195,7 +198,8 @@ fun DynamicGraphicsScreen(
 fun DynamicFieldsList(
     parsedXml: XmlParser.ParsedXml,
     onFieldChanged: (XmlField) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    updateTrigger: Int = 0
 ) {
     Column(
         modifier = modifier
@@ -291,6 +295,8 @@ fun DynamicFieldsList(
 
 @Composable
 fun DynamicBooleanField(field: XmlField.BooleanField, onFieldChanged: (XmlField) -> Unit) {
+    var checked by remember(field.name, field.value) { mutableStateOf(field.value) }
+    
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -312,8 +318,9 @@ fun DynamicBooleanField(field: XmlField.BooleanField, onFieldChanged: (XmlField)
             }
         }
         Switch(
-            checked = field.value,
+            checked = checked,
             onCheckedChange = { 
+                checked = it
                 field.value = it
                 onFieldChanged(field)
             }
@@ -328,57 +335,7 @@ fun DynamicIntField(field: XmlField.IntField, onFieldChanged: (XmlField) -> Unit
     val validMin = minValue.coerceAtMost(maxValue)
     val validMax = maxValue.coerceAtLeast(validMin)
     
-    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    formatFieldName(field.name),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                if (field.isModified) {
-                    Text(
-                        "Modified",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-            Text(
-                field.value.toString(),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        
-        if (validMin < validMax) {
-            Slider(
-                value = field.value.toFloat().coerceIn(validMin.toFloat(), validMax.toFloat()),
-                onValueChange = { 
-                    field.value = it.toInt().coerceIn(validMin, validMax)
-                    onFieldChanged(field)
-                },
-                valueRange = validMin.toFloat()..validMax.toFloat(),
-                steps = ((validMax - validMin).coerceAtMost(100) - 1).coerceAtLeast(0)
-            )
-        } else {
-            Text(
-                "Value: ${field.value} (fixed)",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-fun DynamicFloatField(field: XmlField.FloatField, onFieldChanged: (XmlField) -> Unit) {
-    val minValue = field.min.coerceAtMost(field.value)
-    val maxValue = field.max.coerceAtLeast(field.value)
-    val validMin = minValue.coerceAtMost(maxValue)
-    val validMax = maxValue.coerceAtLeast(validMin)
+    var currentValue by remember(field.name, field.value) { mutableStateOf(field.value) }
     
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
         Row(
@@ -399,7 +356,7 @@ fun DynamicFloatField(field: XmlField.FloatField, onFieldChanged: (XmlField) -> 
                 }
             }
             Text(
-                String.format("%.2f", field.value),
+                currentValue.toString(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -407,9 +364,67 @@ fun DynamicFloatField(field: XmlField.FloatField, onFieldChanged: (XmlField) -> 
         
         if (validMin < validMax) {
             Slider(
-                value = field.value.coerceIn(validMin, validMax),
+                value = currentValue.toFloat().coerceIn(validMin.toFloat(), validMax.toFloat()),
                 onValueChange = { 
-                    field.value = it.coerceIn(validMin, validMax)
+                    val newValue = it.toInt().coerceIn(validMin, validMax)
+                    currentValue = newValue
+                    field.value = newValue
+                    onFieldChanged(field)
+                },
+                valueRange = validMin.toFloat()..validMax.toFloat(),
+                steps = ((validMax - validMin).coerceAtMost(100) - 1).coerceAtLeast(0)
+            )
+        } else {
+            Text(
+                "Value: ${currentValue} (fixed)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun DynamicFloatField(field: XmlField.FloatField, onFieldChanged: (XmlField) -> Unit) {
+    val minValue = field.min.coerceAtMost(field.value)
+    val maxValue = field.max.coerceAtLeast(field.value)
+    val validMin = minValue.coerceAtMost(maxValue)
+    val validMax = maxValue.coerceAtLeast(validMin)
+    
+    var currentValue by remember(field.name, field.value) { mutableStateOf(field.value) }
+    
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    formatFieldName(field.name),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                if (field.isModified) {
+                    Text(
+                        "Modified",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Text(
+                String.format("%.2f", currentValue),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        
+        if (validMin < validMax) {
+            Slider(
+                value = currentValue.coerceIn(validMin, validMax),
+                onValueChange = { 
+                    val newValue = it.coerceIn(validMin, validMax)
+                    currentValue = newValue
+                    field.value = newValue
                     onFieldChanged(field)
                 },
                 valueRange = validMin..validMax,
@@ -417,7 +432,7 @@ fun DynamicFloatField(field: XmlField.FloatField, onFieldChanged: (XmlField) -> 
             )
         } else {
             Text(
-                "Value: ${String.format("%.2f", field.value)} (fixed)",
+                "Value: ${String.format("%.2f", currentValue)} (fixed)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
