@@ -92,22 +92,40 @@ object XmlParser {
             }
             valueStr.contains(".") -> {
                 val value = valueStr.toFloatOrNull() ?: return null
+                var min = inferFloatMin(name, value)
+                var max = inferFloatMax(name, value)
+                if (min > max) {
+                    val temp = min
+                    min = max
+                    max = temp
+                }
+                min = min.coerceAtMost(value)
+                max = max.coerceAtLeast(value)
                 XmlField.FloatField(
                     name = name,
                     value = value,
-                    min = inferFloatMin(name, value),
-                    max = inferFloatMax(name, value),
+                    min = min,
+                    max = max,
                     originalLine = line,
                     lineNumber = lineNumber
                 )
             }
             else -> {
                 val value = valueStr.toIntOrNull() ?: return null
+                var min = inferIntMin(name, value)
+                var max = inferIntMax(name, value)
+                if (min > max) {
+                    val temp = min
+                    min = max
+                    max = temp
+                }
+                min = min.coerceAtMost(value)
+                max = max.coerceAtLeast(value)
                 XmlField.IntField(
                     name = name,
                     value = value,
-                    min = inferIntMin(name, value),
-                    max = inferIntMax(name, value),
+                    min = min,
+                    max = max,
                     originalLine = line,
                     lineNumber = lineNumber
                 )
@@ -119,7 +137,9 @@ object XmlParser {
         return when {
             name.contains("Quality", ignoreCase = true) -> 0
             name.contains("Preset", ignoreCase = true) -> 0
-            name.contains("Resolution", ignoreCase = true) -> if (name.contains("X")) 640 else 360
+            name.contains("ResolutionX", ignoreCase = true) -> 640
+            name.contains("ResolutionY", ignoreCase = true) -> 360
+            name.contains("Framerate", ignoreCase = true) -> 0
             name.contains("FrameRate", ignoreCase = true) -> 0
             name.contains("Vsync", ignoreCase = true) -> 0
             name.contains("Monitor", ignoreCase = true) -> 1
@@ -131,7 +151,6 @@ object XmlParser {
             name.contains("Blur", ignoreCase = true) && !name.contains("Strength") -> 0
             name.contains("Shadow", ignoreCase = true) -> 0
             name.contains("ScaleIndex", ignoreCase = true) -> 0
-            name.contains("Framerate", ignoreCase = true) -> 0
             else -> (currentValue - 100).coerceAtLeast(0)
         }
     }
