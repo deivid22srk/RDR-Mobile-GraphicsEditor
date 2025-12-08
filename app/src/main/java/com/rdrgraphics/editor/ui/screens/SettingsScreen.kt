@@ -56,7 +56,7 @@ fun SettingsScreen() {
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        "RDR Mobile Graphics Editor\nVersion 2.0 - Dynamic Edition",
+                        "RDR Mobile Graphics Editor\nVersion 3.0 - SAF Edition",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -207,7 +207,7 @@ fun SettingsScreen() {
                     FeatureItem(
                         icon = Icons.Filled.DynamicForm,
                         title = "Dynamic XML Loading",
-                        description = "Automatically reads and adapts to graphics.xml"
+                        description = "Automatically reads and adapts to any XML file"
                     )
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
                     FeatureItem(
@@ -217,9 +217,9 @@ fun SettingsScreen() {
                     )
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
                     FeatureItem(
-                        icon = Icons.Filled.Security,
-                        title = "Root Access via libsu",
-                        description = "Efficient and secure root operations"
+                        icon = Icons.Filled.Folder,
+                        title = "Storage Access Framework",
+                        description = "Uses Android's native file picker, no root required"
                     )
                     Divider(modifier = Modifier.padding(vertical = 8.dp))
                     FeatureItem(

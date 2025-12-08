@@ -1,67 +1,61 @@
 # RDR Graphics Editor
 
-Editor de configurações gráficas e de idioma para Red Dead Redemption Mobile (Netflix Version).
+Editor de configurações gráficas para Red Dead Redemption Mobile (Netflix Version) e outros jogos que usam arquivos XML para configurações.
 
 ## Características
 
 - ✨ Material You / Material 3 com Dynamic Colors
-- 🔧 Editor completo de configurações gráficas (graphics.xml)
-- 🌍 Modificação de idioma preservando configurações existentes (netflix.dat)
-- 🔐 Acesso Root necessário
+- 🔧 Editor dinâmico de configurações XML
+- 📁 Usa Storage Access Framework (SAF) nativo do Android
+- 🚫 **Não requer ROOT** - usa o seletor de arquivos padrão do Android
 - 📱 Interface moderna com Jetpack Compose
-- 🔍 Feedback detalhado durante operações
-- 💾 Preserva dados existentes ao modificar idioma
+- 🔍 Leitura e escrita segura de arquivos via SAF
+- 💾 Modifica apenas as linhas alteradas, preservando o resto do XML
 
 ## Requisitos
 
 - Android 8.0 (API 26) ou superior
-- Acesso Root (Magisk, KernelSU, etc.)
-- Red Dead Redemption Mobile instalado (com.netflix.NGP.Kamo)
-
-## Configurações Editáveis
-
-### Graphics Settings (graphics.xml)
-Modifica **TODAS** as configurações do arquivo:
-- Resolução (Width: 640-3840, Height: 360-2160)
-- VSync e Frame Rate Limit (0-240 FPS)
-- Qualidade de Sombras (0-4)
-- Anti-Aliasing (0-4)
-- Anisotropic Filtering (0-16)
-- Motion Blur (Style 0-2, Strength 0-1)
-- Dynamic Resolution
-- Triple Buffering
-- World/Terrain/Tree/Grass Streaming
-- HDR com Peak Brightness e Paper White
-- FSR3 Upscaling (Quality 0-4 + Sharpness)
-- DLSS Upscaling (Quality 0-4)
-- Screen Percentage (0.5-2.0)
-- Mobile Preset (0-4)
-
-### Language Settings (netflix.dat)
-Modifica **APENAS** a linha `LANGUAGE=` preservando todo o resto do arquivo:
-- 15 idiomas suportados:
-  - English (US)
-  - Português (Brasil)
-  - Español (España/México)
-  - Français
-  - Deutsch
-  - Italiano
-  - 日本語
-  - 한국어
-  - 中文 (简体/繁體)
-  - Русский
-  - Polski
-  - Türkçe
-  - العربية
+- Acesso aos arquivos de configuração do jogo
+- **Não requer acesso root**
 
 ## Como Usar
 
 1. Instale o APK
 2. Abra o app
-3. Conceda acesso root quando solicitado
-4. Configure as opções desejadas
-5. Clique em "Apply Changes"
-6. Reinicie o jogo
+3. Clique em "Select File" para escolher o arquivo XML
+4. Navegue até a pasta de dados do jogo usando o seletor de arquivos do Android
+5. Selecione o arquivo `graphics.xml` ou outro arquivo XML de configuração
+6. Edite as configurações desejadas
+7. Clique em "Apply Changes" para salvar
+8. Reinicie o jogo
+
+## Configurações Editáveis
+
+O editor carrega dinamicamente todos os campos do XML, incluindo:
+
+### Graphics Settings (graphics.xml)
+- Resolução (Width/Height)
+- VSync e Frame Rate Limit
+- Qualidade de Sombras
+- Anti-Aliasing
+- Anisotropic Filtering
+- Motion Blur
+- Dynamic Resolution
+- Triple Buffering
+- World/Terrain/Tree/Grass Streaming
+- HDR (Peak Brightness, Paper White)
+- FSR3 Upscaling
+- DLSS Upscaling
+- Screen Percentage
+- E muito mais...
+
+## Storage Access Framework (SAF)
+
+Este aplicativo usa o Storage Access Framework do Android, que permite:
+- Selecionar arquivos de qualquer local acessível
+- Ler e escrever em arquivos com permissão do usuário
+- Manter permissões persistentes para arquivos selecionados
+- Funcionar sem necessidade de acesso root
 
 ## Build
 
@@ -69,22 +63,25 @@ Modifica **APENAS** a linha `LANGUAGE=` preservando todo o resto do arquivo:
 ./gradlew assembleDebug
 ```
 
-## GitHub Actions
+## Caminhos Comuns dos Arquivos
 
-O projeto inclui um workflow do GitHub Actions que compila automaticamente o APK debug em cada push.
+Para RDR Mobile (Netflix):
+- Graphics: `/data/data/com.netflix.NGP.Kamo/files/graphics.xml`
+- Ou: `/Android/data/com.netflix.NGP.Kamo/files/`
 
-## Caminhos dos Arquivos
-
-- Graphics: `/data/user/0/com.netflix.NGP.Kamo/files/graphics.xml`
-- Language: `/storage/emulated/0/Android/data/com.netflix.NGP.Kamo/files/netflix.dat`
+**Nota:** Use o seletor de arquivos do Android para navegar até esses locais.
 
 ## Troubleshooting
 
+Se não conseguir selecionar o arquivo:
+1. Certifique-se de que o jogo está instalado
+2. Use um gerenciador de arquivos com acesso root para verificar a localização exata
+3. Alguns arquivos podem requerer acesso root no sistema (nesse caso, use um gerenciador de arquivos com root para copiar o arquivo para uma pasta acessível)
+
 Se "Apply Changes" não funcionar:
-1. Verifique se o acesso root foi concedido
-2. Verifique se o jogo está instalado
-3. Verifique se os caminhos dos arquivos existem
-4. Tente reiniciar o dispositivo
+1. Verifique se o arquivo foi selecionado corretamente
+2. Certifique-se de ter permissão de escrita no arquivo
+3. Tente copiar o arquivo para uma pasta acessível (como Downloads) primeiro
 
 ## Licença
 

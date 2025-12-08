@@ -1,5 +1,6 @@
 package com.rdrgraphics.editor.ui.screens
 
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -9,10 +10,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.rdrgraphics.editor.data.XmlField
 import com.rdrgraphics.editor.data.XmlParser
-import com.rdrgraphics.editor.utils.RootManager
+import com.rdrgraphics.editor.utils.FileManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -20,35 +22,37 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DynamicGraphicsScreen(
-    xmlFilePath: String? = null
+    xmlFileUri: Uri? = null
 ) {
-    val filePath = xmlFilePath ?: RootManager.GRAPHICS_PATH
+    val context = LocalContext.current
     var parsedXml by remember { mutableStateOf<XmlParser.ParsedXml?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var currentFilePath by remember { mutableStateOf(filePath) }
+    var currentFileUri by remember { mutableStateOf(xmlFileUri) }
+    var fileName by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     
-    LaunchedEffect(currentFilePath) {
-        isLoading = true
-        error = null
-        val hasRoot = withContext(Dispatchers.IO) {
-            RootManager.isRootAvailable()
-        }
-        
-        if (!hasRoot) {
-            error = "Root access denied. Please grant root access and restart the app."
+    LaunchedEffect(currentFileUri) {
+        if (currentFileUri == null) {
+            error = "No file selected"
             isLoading = false
             return@LaunchedEffect
         }
         
+        isLoading = true
+        error = null
+        
+        fileName = withContext(Dispatchers.IO) {
+            FileManager.getFileName(context, currentFileUri!!)
+        }
+        
         val parsed = withContext(Dispatchers.IO) {
-            RootManager.parseXmlFile(currentFilePath)
+            FileManager.parseXmlFile(context, currentFileUri!!)
         }
         
         if (parsed == null) {
-            error = "Could not read XML file: $currentFilePath"
+            error = "Could not read or parse XML file"
             isLoading = false
             return@LaunchedEffect
         }
@@ -60,14 +64,14 @@ fun DynamicGraphicsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            if (parsedXml != null) {
+            if (parsedXml != null && currentFileUri != null) {
                 ExtendedFloatingActionButton(
                     onClick = {
                         scope.launch {
                             parsedXml?.let { xml ->
                                 snackbarHostState.showSnackbar("Applying changes...")
                                 val success = withContext(Dispatchers.IO) {
-                                    RootManager.writePartialXmlFile(currentFilePath, xml)
+                                    FileManager.writePartialXmlFile(context, currentFileUri!!, xml)
                                 }
                                 
                                 snackbarHostState.showSnackbar(
@@ -96,10 +100,10 @@ fun DynamicGraphicsScreen(
                         .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(horizontalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Reading graphics.xml...", style = MaterialTheme.typography.bodyMedium)
+                        Text("Reading XML file...", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -164,11 +168,10 @@ fun DynamicGraphicsScreen(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = currentFilePath,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                text = fileName ?: "Unknown file",
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                maxLines = 2,
+                                maxLines = 1,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f)
                             )
@@ -215,7 +218,7 @@ fun DynamicFieldsList(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    "Loaded ${parsedXml.fields.size} settings from graphics.xml",
+                    "Loaded ${parsedXml.fields.size} settings from XML file",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
